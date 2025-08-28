@@ -18,19 +18,125 @@ model User {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  // Relationships
+  draftParticipants DraftParticipant[]
+  picks             Pick[]
+
   @@map("users")
 }
 
 model Draft {
-  id          String   @id @default(cuid())
+  id          String      @id @default(cuid())
   name        String
-  setCode     String   // MTG set code (e.g., "LTR", "WOE")
+  setCode     String      // MTG set code (e.g., "LTR", "WOE")
   status      DraftStatus @default(WAITING)
-  maxPlayers  Int      @default(8)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  maxPlayers  Int         @default(8)
+  currentPack Int         @default(1)
+  currentPick Int         @default(1)
+  packDirection Boolean   @default(true) // true = left, false = right
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  // Relationships
+  participants DraftParticipant[]
+  packs        Pack[]
+  picks        Pick[]
 
   @@map("drafts")
+}
+
+model DraftParticipant {
+  id       String @id @default(cuid())
+  draftId  String
+  userId   String?
+  position Int    // Seat position (1-8)
+  isBot    Boolean @default(false)
+  botName  String? // For bot players
+
+  // Relationships
+  draft Draft @relation(fields: [draftId], references: [id], onDelete: Cascade)
+  user  User? @relation(fields: [userId], references: [id])
+  picks Pick[]
+
+  @@unique([draftId, position])
+  @@map("draft_participants")
+}
+
+model Card {
+  id          String  @id @default(cuid())
+  scryfallId  String  @unique
+  name        String
+  manaCost    String?
+  cmc         Float   @default(0)
+  type        String
+  rarity      String
+  setCode     String
+  imageUrl    String?
+  colors      String[] // Array of color strings
+  colorIdentity String[] // Array of color identity strings
+  
+  // Card text
+  oracleText  String?
+  flavorText  String?
+  
+  // Stats (for creatures)
+  power       String?
+  toughness   String?
+  
+  // Pack information
+  packCards   PackCard[]
+  picks       Pick[]
+
+  @@index([setCode])
+  @@index([rarity])
+  @@map("cards")
+}
+
+model Pack {
+  id        String @id @default(cuid())
+  draftId   String
+  packNumber Int   // 1, 2, 3
+  position   Int   // Which seat this pack belongs to
+  
+  // Relationships
+  draft     Draft      @relation(fields: [draftId], references: [id], onDelete: Cascade)
+  cards     PackCard[]
+  
+  @@unique([draftId, packNumber, position])
+  @@map("packs")
+}
+
+model PackCard {
+  id     String @id @default(cuid())
+  packId String
+  cardId String
+  
+  // Relationships
+  pack Pack @relation(fields: [packId], references: [id], onDelete: Cascade)
+  card Card @relation(fields: [cardId], references: [id])
+  
+  @@unique([packId, cardId])
+  @@map("pack_cards")
+}
+
+model Pick {
+  id            String @id @default(cuid())
+  draftId       String
+  participantId String
+  userId        String?
+  cardId        String
+  packNumber    Int
+  pickNumber    Int
+  timestamp     DateTime @default(now())
+  
+  // Relationships
+  draft       Draft             @relation(fields: [draftId], references: [id], onDelete: Cascade)
+  participant DraftParticipant @relation(fields: [participantId], references: [id], onDelete: Cascade)
+  user        User?             @relation(fields: [userId], references: [id])
+  card        Card              @relation(fields: [cardId], references: [id])
+  
+  @@unique([draftId, participantId, packNumber, pickNumber])
+  @@map("picks")
 }
 
 enum DraftStatus {
