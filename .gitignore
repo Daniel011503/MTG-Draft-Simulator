@@ -5,6 +5,9 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
+# GitHub Copilot internal files
+.github/copilot-instructions.md
+
 # Environment variables and secrets
 .env
 .env.local
