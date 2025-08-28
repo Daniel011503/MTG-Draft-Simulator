@@ -1,0 +1,76 @@
+services:
+  postgres:
+    image: postgres:15
+    container_name: mtg-postgres
+    environment:
+      POSTGRES_DB: mtg_draft_simulator
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init-postgres.sh:/docker-entrypoint-initdb.d/init-postgres.sh
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - mtg-network
+
+  backend:
+    build: 
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: mtg-backend
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/mtg_draft_simulator
+      - PORT=3001
+      - NODE_ENV=development
+      - JWT_SECRET=your-super-secure-jwt-secret-change-this-in-production
+    ports:
+      - "3001:3001"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./backend:/app
+      - /app/node_modules
+    networks:
+      - mtg-network
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: mtg-frontend
+    environment:
+      - NEXT_PUBLIC_API_URL=http://localhost:3001
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+      - /app/.next
+    networks:
+      - mtg-network
+
+  adminer:
+    image: adminer
+    container_name: mtg-adminer
+    ports:
+      - "8080:8080"
+    depends_on:
+      - postgres
+    networks:
+      - mtg-network
+
+volumes:
+  postgres_data:
+
+networks:
+  mtg-network:
+    driver: bridge

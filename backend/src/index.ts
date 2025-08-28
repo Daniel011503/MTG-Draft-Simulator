@@ -1,8 +1,10 @@
+import 'dotenv/config'
 import Fastify from 'fastify'
 import cors from '@fastify/cors'
 import helmet from '@fastify/helmet'
 import swagger from '@fastify/swagger'
 import swaggerUi from '@fastify/swagger-ui'
+import { Client } from 'pg'
 
 const fastify = Fastify({
   logger: true
@@ -41,6 +43,33 @@ fastify.register(swaggerUi, {
 // Health check endpoint
 fastify.get('/health', async (request, reply) => {
   return { status: 'ok', timestamp: new Date().toISOString() }
+})
+
+// Database health check endpoint
+fastify.get('/health/db', async (request, reply) => {
+  try {
+    const client = new Client({
+      connectionString: process.env.DATABASE_URL || 'postgresql://postgres:postgres@postgres:5432/mtg_draft_simulator'
+    })
+    
+    await client.connect()
+    const result = await client.query('SELECT 1 as test')
+    await client.end()
+    
+    return { 
+      status: 'ok', 
+      database: 'connected', 
+      timestamp: new Date().toISOString() 
+    }
+  } catch (error) {
+    reply.code(500)
+    return { 
+      status: 'error', 
+      database: 'disconnected', 
+      error: error instanceof Error ? error.message : 'Unknown error',
+      timestamp: new Date().toISOString() 
+    }
+  }
 })
 
 // API Routes (to be added)
